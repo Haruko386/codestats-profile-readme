@@ -54,29 +54,41 @@ You can increase maximum languages up to 15 by adding a query parameter `?max_la
 
 You can customize the colors of grid, text, zeroline and bars by adding `grid_color`, `text_color`, `zeroline_color` and `language_colors` query parameters.
 
-The `language_colors` is a list of colors seperated by comma and wrapped with `[]`, each color should be wrapped with quotes (e.g. `["red","hsl(0,100%,50%)","rgba(255,0,0,0.5)"]`)
+If `language_colors` is omitted, each language uses its default color from GitHub Linguist. Languages without a GitHub color, including the grouped `Others` bar, use `fallback_language_color`.
+
+`language_colors` accepts either of the following JSON values:
+
+- A positional color list. Colors are assigned to bars in order and loop when needed, preserving the original behavior (e.g. `["red","green","blue"]`).
+- An object that overrides individual language colors. Language names and common aliases are case-insensitive (e.g. `{"Python":"ff0000","cpp":"00ff00"}`). Languages not included in the object continue to use their GitHub colors.
 
 ```markdown
 ![My Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/username?grid_color=e8e8e8&text_color=666666&zeroline_color=ababab&language_colors=["red","green","blue"])
+```
+
+For example, to override only Python and C++:
+
+```markdown
+![My Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/username?language_colors={"Python":"ff0000","cpp":"00ff00"}&fallback_language_color=8b949e)
 ```
 
 See [color string](#color-string) below for supported color representations.
 
 ### More customization
 
-| query parameter | type                                | description                                                                             | default value                                                                          |
-| --------------- | ----------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| history_days    | integer                             | how many days to show in the graph, maximum 30                                          | 14                                                                                     |
-| max_languages   | integer                             | how many languages to show before grouping into "Others", maximum 15                    | 8                                                                                      |
-| timezone        | [timezone string](#timezone-string) | what timezone to use to calculate day ranges                                            | 00:00                                                                                  |
-| width           | integer                             | the width of image (in pixels)                                                          | 900                                                                                    |
-| height          | integer                             | the height of image (in pixels)                                                         | 450                                                                                    |
-| show_legend     | boolean                             | whether to show graph legend on the right                                               | true                                                                                   |
-| bg_color        | [color string](#color-string)       | the color of the image's background                                                     | ffffff                                                                                 |
-| grid_color      | [color string](#color-string)       | the color of the grid                                                                   | e8e8e8                                                                                 |
-| text_color      | [color string](#color-string)       | the color of the text                                                                   | 666666                                                                                 |
-| zeroline_color  | [color string](#color-string)       | the color of the zero-line                                                              | ababab                                                                                 |
-| language_colors | [color string](#color-string) list  | the colors of each langauge and "Others" (loops if length is less than `max_languages`) | \["3e4053","f15854","5da5da", "faa43a","60bd68","f17cb0", "b2912f","decf3f","b276b2"\] |
+| query parameter         | type                                             | description                                                                                       | default value          |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ---------------------- |
+| history_days            | integer                                          | how many days to show in the graph, maximum 30                                                    | 14                     |
+| max_languages           | integer                                          | how many languages to show before grouping into "Others", maximum 15                             | 8                      |
+| timezone                | [timezone string](#timezone-string)              | what timezone to use to calculate day ranges                                                      | 00:00                  |
+| width                   | integer                                          | the width of image (in pixels)                                                                    | 900                    |
+| height                  | integer                                          | the height of image (in pixels)                                                                   | 450                    |
+| show_legend             | boolean                                          | whether to show graph legend on the right                                                         | true                   |
+| bg_color                | [color string](#color-string)                    | the color of the image's background                                                               | ffffff                 |
+| grid_color              | [color string](#color-string)                    | the color of the grid                                                                             | e8e8e8                 |
+| text_color              | [color string](#color-string)                    | the color of the text                                                                             | 666666                 |
+| zeroline_color          | [color string](#color-string)                    | the color of the zero-line                                                                        | ababab                 |
+| language_colors         | [color string](#color-string) list or JSON object | positional bar colors, or per-language overrides; when omitted, GitHub Linguist colors are used   | GitHub language colors |
+| fallback_language_color | [color string](#color-string)                    | the color used when a language has no GitHub color                                                 | 8b949e                 |
 
 **Special types:**
 
@@ -119,7 +131,11 @@ Prerequisites:
 - **(Optional)** [Redis](https://redis.io/download/) for caching. If not installed, the app will use a file system cache instead, which is not very performant thus it is highly recommended that you configure a Redis server.
 - **(Optional)** [SVGO](https://github.com/svg/svgo) for optimizing SVGs (also requires [Node.js](https://nodejs.org/en/download/))
 
-1. Clone the project: `git clone https://github.com/WEGFan/codestats-profile-readme && cd codestats-profile-readme`
-2. Install requirements: `pip install -r requirements.txt`
-3. Edit your config in [config/custom_config.py](config/custom_config.py).
-4. Run: `gunicorn -c gunicorn_config.py run:app`, and you should be able to access it by `http://127.0.0.1:2012` on your server
+1. Clone the project: `git clone https://github.com/Haruko386/codestats-profile-readme.git && cd codestats-profile-readme`
+2. Create and activate a virtual environment: `python3 -m venv .venv && source .venv/bin/activate`
+3. Install requirements: `python -m pip install -r requirements.txt`
+4. Generate the bundled GitHub language color data: `python scripts/update_github_language_colors.py`
+5. Copy `config/custom_config.py` to `config/custom_config_local.py` and edit the local copy as needed.
+6. Run: `gunicorn -c gunicorn_config.py run:app`, and you should be able to access it at `http://127.0.0.1:2012` on your server.
+
+The generated language color file is stored at `app/data/github_language_colors.json` and must exist before the application starts. Run the update script again whenever you want to refresh colors from GitHub Linguist.
