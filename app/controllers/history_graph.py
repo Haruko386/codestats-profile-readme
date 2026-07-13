@@ -13,6 +13,10 @@ from app.models.daily_language_xp import DailyLanguageXp
 from app.models.history_graph_config import GraphConfig
 from app.schemas.history_graph_config import GraphConfigSchema
 from app.utils.svgo import try_optimize_svg
+from app.utils.language_colors import (
+    get_github_language_color,
+    normalize_language_name,
+)
 
 history_graph = Blueprint('history_graph', __name__, url_prefix='/history-graph')
 
@@ -25,6 +29,34 @@ def calculate_best_range(y_max):
     tick_delta = new_fraction * 10 ** (exponent - 1)
     return math.ceil(y_max / tick_delta) * tick_delta
 
+def resolve_bar_color(
+    language: str,
+    index: int,
+    config: GraphConfig,
+) -> str:
+    """Resolve the display color for one language bar."""
+
+    # Legacy positional palette.
+    if isinstance(config.language_colors, list):
+        return config.language_colors[
+            index % len(config.language_colors)
+        ]
+
+    language_key = normalize_language_name(language)
+
+    # Per-language custom override.
+    custom_color = config.language_colors.get(
+        language_key
+    )
+
+    if custom_color:
+        return custom_color
+
+    # GitHub official color, then fallback.
+    return (
+        get_github_language_color(language)
+        or config.fallback_language_color
+    )
 
 def get_graph(day_language_xp_list: List[DailyLanguageXp], config: GraphConfig):
     today = arrow.utcnow().to(config.timezone)
@@ -91,7 +123,7 @@ def get_graph(day_language_xp_list: List[DailyLanguageXp], config: GraphConfig):
             go.Bar(
                 name=language, x=x_axis, y=xp_per_day, width=0.7,
                 marker=go.bar.Marker(
-                    color=config.language_colors[idx % len(config.language_colors)],
+                    color=resolve_bar_color(language, idx, config),
                     line=go.bar.marker.Line(
                         width=0
                     )
