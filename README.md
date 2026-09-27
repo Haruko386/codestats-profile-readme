@@ -1,30 +1,49 @@
 # Code::Stats Profile README Action
 
-这是一个可复用 GitHub Action，参考 [WEGFan/codestats-profile-readme](https://github.com/WEGFan/codestats-profile-readme) 的历史图布局生成静态 SVG，并使用 [GitHub Linguist](https://github.com/github-linguist/linguist) 官方语言颜色。
+A reusable GitHub Action that generates a static Code::Stats history graph. Its layout is based on [WEGFan/codestats-profile-readme](https://github.com/WEGFan/codestats-profile-readme), while language colors come from the official [GitHub Linguist](https://github.com/github-linguist/linguist) definitions.
 
-这个仓库只保存生成器，不在自身仓库中定时生成或提交图表。实际的历史数据和 SVG 会写入调用该 Action 的仓库。
+This repository contains only the graph generator. Generated history data and SVG files are written and committed to the repository that calls this Action, so this repository does not receive daily generated commits.
 
-## 行为
+## How it works
 
-- 首次运行会获取截至昨天的完整 30 天。
-- 后续运行只请求并替换昨天的数据。
-- 默认时区为 `Asia/Shanghai`，图表大小为 `1000 × 300`。
-- 历史数据写入 `data/codestats-history.json`。
-- SVG 写入 `assets/codestats-history.svg`。
-- Action 自动在调用方仓库提交发生变化的两个文件。
+- The first run fetches a complete 30-day window ending yesterday.
+- Later runs fetch and replace yesterday's data only.
+- The default timezone is `Asia/Shanghai`.
+- The generated graph is `1000 x 300` pixels.
+- History is stored in `data/codestats-history.json`.
+- The SVG is written to `assets/codestats-history.svg`.
+- Changed output files are automatically committed to the caller repository.
+- Language colors are bound by language name, so colors do not change when language rankings change.
 
-## 在个人资料仓库中使用
+## Usage in a profile repository
+
+Create `.github/workflows/update-code-stats.yml` in the profile repository:
 
 ```yaml
 name: Update Code::Stats profile graph
 
 on:
   schedule:
-    - cron: "0 0 * * *" # UTC 00:00 / UTC+8 08:00
+    # GitHub Actions uses UTC. This runs at 08:00 in Asia/Shanghai.
+    - cron: "0 0 * * *"
   workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional date to retry (YYYY-MM-DD)"
+        required: false
+        type: string
+      bootstrap:
+        description: "Refresh the complete 30-day window"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-code-stats-profile
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -33,10 +52,14 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
       - uses: Haruko386/codestats-profile-readme@master
+        with:
+          date: ${{ inputs.date }}
+          bootstrap: ${{ inputs.bootstrap }}
 ```
 
-然后在个人资料 `README.md` 中引用：
+Then embed the generated image in the profile `README.md`:
 
 ```html
 <a href="https://codestats.net/users/Haruko386">
@@ -44,17 +67,21 @@ jobs:
 </a>
 ```
 
-## 手动补跑
+## Manual runs and backfills
 
-调用方工作流可以传递两个可选输入：
+The workflow supports two optional inputs:
 
-- `date`：只补指定日期，例如 `2026-09-26`。
-- `bootstrap`：设为 `true` 时强制刷新完整 30 天窗口。
+- `date` fetches one specific date, for example `2026-09-26`.
+- `bootstrap`, when set to `true`, refreshes the complete 30-day window ending on the selected date or yesterday.
 
-生成脚本只使用 Python 标准库。测试命令：
+A manual run does not change or disable the daily schedule.
+
+## Development
+
+The generator uses only the Python standard library. Run the test suite with:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-本项目沿用原项目的 MIT License。
+This project is distributed under the MIT License inherited from the original project.
