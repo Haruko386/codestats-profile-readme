@@ -1,5 +1,4 @@
 data/*
-!data/codestats-history.json
 !data/github-language-colors.json
 config/custom_config_local.py
 
