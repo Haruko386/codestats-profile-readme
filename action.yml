@@ -1,0 +1,54 @@
+name: Code::Stats Profile Graph
+description: Generate and commit a 30-day Code::Stats SVG in the caller repository
+
+inputs:
+  date:
+    description: Optional date to retry (YYYY-MM-DD)
+    required: false
+    default: ""
+  bootstrap:
+    description: Refresh the complete 30-day window
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: "3.12"
+
+    - name: Generate Code::Stats graph
+      shell: bash
+      env:
+        INPUT_DATE: ${{ inputs.date }}
+        INPUT_BOOTSTRAP: ${{ inputs.bootstrap }}
+      run: |
+        args=(--workspace "$GITHUB_WORKSPACE")
+        if [[ -n "$INPUT_DATE" ]]; then
+          args+=(--date "$INPUT_DATE")
+        fi
+        if [[ "$INPUT_BOOTSTRAP" == "true" ]]; then
+          args+=(--bootstrap)
+        fi
+        python "$GITHUB_ACTION_PATH/scripts/generate_history_graph.py" "${args[@]}"
+
+    - name: Commit generated graph to caller repository
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        if [[ -z "$(git status --porcelain -- assets/codestats-history.svg data/codestats-history.json)" ]]; then
+          echo "Nothing changed."
+          exit 0
+        fi
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git add assets/codestats-history.svg data/codestats-history.json
+        git commit -m "chore: update Code::Stats history [skip ci]"
+        git pull --rebase origin "${GITHUB_REF_NAME}"
+        git push origin "HEAD:${GITHUB_REF_NAME}"
+
+branding:
+  icon: bar-chart-2
+  color: blue

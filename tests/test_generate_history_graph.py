@@ -93,6 +93,13 @@ class GeneratorTests(unittest.TestCase):
             graph.write_json(output, {"b": 1, "a": 2})
             self.assertEqual(output.read_bytes()[-1:], b"\n")
 
+    def test_relative_output_can_target_caller_workspace(self):
+        workspace = Path("caller-repository")
+        self.assertEqual(
+            graph.relative_path("assets/history.svg", workspace),
+            workspace / "assets" / "history.svg",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

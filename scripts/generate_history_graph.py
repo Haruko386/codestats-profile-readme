@@ -407,9 +407,9 @@ def render_svg(
     return "\n".join(parts)
 
 
-def relative_path(value: str) -> Path:
+def relative_path(value: str, base: Path = ROOT) -> Path:
     path = Path(value)
-    return path if path.is_absolute() else ROOT / path
+    return path if path.is_absolute() else base / path
 
 
 def parse_args() -> argparse.Namespace:
@@ -418,6 +418,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--date", type=date.fromisoformat, help="day to fetch (YYYY-MM-DD); defaults to yesterday")
     parser.add_argument("--bootstrap", action="store_true", help="refresh the complete history window")
     parser.add_argument("--offline", action="store_true", help="render stored data without network requests")
+    parser.add_argument(
+        "--workspace",
+        type=Path,
+        help="write history and SVG into another repository (used by the reusable action)",
+    )
     return parser.parse_args()
 
 
@@ -425,8 +430,9 @@ def main() -> int:
     args = parse_args()
     config = load_json(args.config.resolve())
     validate_config(config)
-    history_path = relative_path(config["history_file"])
-    output_path = relative_path(config["output"])
+    workspace = args.workspace.resolve() if args.workspace else ROOT
+    history_path = relative_path(config["history_file"], workspace)
+    output_path = relative_path(config["output"], workspace)
     colours_path = relative_path(config["colors_file"])
     history = load_json(history_path) if history_path.exists() else {"days": {}}
 
@@ -464,7 +470,7 @@ def main() -> int:
     svg = render_svg(history, end_day, config, colours)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(svg, encoding="utf-8", newline="\n")
-    print(f"Rendered {output_path.relative_to(ROOT)} through {end_day}.")
+    print(f"Rendered {output_path.relative_to(workspace)} through {end_day}.")
     return 0
 
 
