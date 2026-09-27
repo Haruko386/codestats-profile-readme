@@ -1,0 +1,30 @@
+{
+  "username": "Haruko386",
+  "timezone": "Asia/Shanghai",
+  "history_days": 30,
+  "max_languages": 12,
+  "width": 1000,
+  "height": 300,
+  "show_legend": true,
+  "output": "assets/codestats-history.svg",
+  "history_file": "data/codestats-history.json",
+  "colors_file": "data/github-language-colors.json",
+  "background_color": "#ffffff",
+  "grid_color": "#d0d7de",
+  "text_color": "#57606a",
+  "zero_line_color": "#8c959f",
+  "unknown_color": "#d0d7de",
+  "language_aliases": {
+    ".gitignore (GitIgnore)": "Ignore List",
+    "C/C++": "C++",
+    "Docker": "Dockerfile",
+    "Shell Script": "Shell",
+    "TypeScript (JSX)": "TypeScript"
+  },
+  "color_overrides": {
+    "ChatInput": "#a7c0ec",
+    "Log": "#292929",
+    "Others": "#ededed",
+    "Plain text": "#d0d7de"
+  }
+}
