@@ -1,125 +1,101 @@
-<p align="center">
-    <h2 align="center">Code::Stats Profile Readme</h2>
-    <p align="center">Get dynamically generated <a href="https://codestats.net">Code::Stats</a> stats on your profile readme!</p>
-</p>
+# Code::Stats Profile README（每日快照版）
 
-<p align="center">
-    <a href="#demo">View Demo</a>
-    ·
-    <a href="https://github.com/WEGFan/codestats-profile-readme/issues">Report Bug</a>
-    ·
-    <a href="https://github.com/WEGFan/codestats-profile-readme/issues">Request Feature</a>
-</p>
+这个版本参考 [WEGFan/codestats-profile-readme](https://github.com/WEGFan/codestats-profile-readme) 的历史图布局，但不再运行实时图片服务。首次运行会一次性初始化截至昨天的 30 天数据；之后 GitHub Actions 每天在东八区 08:00 只请求前一天的数据，并重新生成静态 SVG。
 
----
+### 🕰️ Recently I'm coding in...
 
-> Note that Github's server aborts the request if it reaches the 4-second timeout. So maybe the images won't show because my server is waiting for response from Code::Stats, try refreshing and see if it shows.  
-> To prevent heavy load from Code::Stats server, all data from same user will be cached for 30 minutes before updating data.
+<a href="https://codestats.net/users/Haruko386">
+  <img src="./assets/codestats-history.svg" alt="Haruko386's Code::Stats history graph" width="1000" />
+</a>
 
-## Features <!-- omit in toc -->
+## 与原项目的区别
 
-- [Code::Stats History Graph](#codestats-history-graph)
-  - [Increasing history days](#increasing-history-days)
-  - [Increasing maximum languages](#increasing-maximum-languages)
-  - [Customizing colors](#customizing-colors)
-  - [More customization](#more-customization)
-  - [Demo](#demo)
-- [Deploy on your own server](#deploy-on-your-own-server)
+- 原项目在图片请求到达时实时查询；本项目每天生成一次静态文件，不依赖常驻服务器。
+- 首次运行（或更换用户名）拉取截至昨天的完整 30 天；初始化完成后，每次正常运行只请求东八区“昨天”这一天。
+- Code::Stats 接口没有结束日期参数，所以脚本会主动丢弃响应中今天及请求窗口外的数据。
+- 历史数据保存在 `data/codestats-history.json`，自动只保留最近 30 天。
+- 颜色按语言名称绑定，不按排名绑定。标准语言来自 [GitHub Linguist `languages.yml`](https://github.com/github-linguist/linguist/blob/main/lib/linguist/languages.yml)，所以柱体排序变化时不会串色。
+- `ChatInput`、`Log` 等不属于 GitHub Linguist 的 Code::Stats 伪语言，可在配置中指定颜色；未识别语言使用灰色。
 
-## Code::Stats History Graph
+## 启用
 
-Simply add this to your markdown and change `username` to your Code::Stats username.
+1. 在 [`config/history-graph.json`](./config/history-graph.json) 中修改 `username`。默认已设为 `Haruko386`，时区为 `Asia/Shanghai`，画布为 `1000 × 300`，显示 30 天和最多 12 种语言。
+2. 将仓库推送到 GitHub。工作流 [`.github/workflows/update-code-stats.yml`](./.github/workflows/update-code-stats.yml) 使用 `0 0 * * *`，即 UTC 00:00 / 东八区 08:00。GitHub 的计划任务可能因平台负载稍晚开始。
+3. 在仓库的 **Actions → Update Code::Stats history graph → Run workflow** 手动运行一次，或等待下一次计划任务。
+4. 如果组织或仓库策略限制了 `GITHUB_TOKEN`，请在 **Settings → Actions → General → Workflow permissions** 允许工作流写入仓库内容。
 
-```markdown
-![My Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/username)
+不需要 Code::Stats token；公开用户数据直接从 Code::Stats API 获取。脚本只使用 Python 标准库，无需安装依赖。
+
+## 在个人 README 中引用
+
+如果图片和 README 在同一个仓库：
+
+```html
+<a href="https://codestats.net/users/Haruko386">
+  <img src="./assets/codestats-history.svg" alt="Haruko386's Code::Stats history graph" />
+</a>
 ```
 
-### Increasing history days
+如果从另一个仓库引用，请换成原始文件地址，并替换所有占位值：
 
-You can increase history days up to 30 days by adding a query parameter `?history_days=`
-
-```markdown
-![My Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/username?history_days=30)
+```html
+<a href="https://codestats.net/users/Haruko386">
+  <img src="https://raw.githubusercontent.com/OWNER/REPOSITORY/BRANCH/assets/codestats-history.svg" alt="Haruko386's Code::Stats history graph" />
+</a>
 ```
 
-### Increasing maximum languages
+## 配置颜色
 
-You can increase maximum languages up to 15 by adding a query parameter `?max_languages=`
+[`config/history-graph.json`](./config/history-graph.json) 中有两种映射：
 
-```markdown
-![My Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/username?max_languages=15)
+- `language_aliases`：把 Code::Stats 名称映射到 GitHub Linguist 名称，例如 `C/C++ → C++`、`Shell Script → Shell`。
+- `color_overrides`：为 GitHub 没有收录的名称指定颜色。它的优先级高于官方色。
+
+颜色解析顺序为：`color_overrides` → `language_aliases` → GitHub Linguist → `unknown_color`。
+
+## 失败补跑和本地运行
+
+计划任务失败后，可以手动运行工作流，并在 `date` 输入框填写漏掉的日期，例如 `2026-09-26`。接口仍会只保存所填日期的数据。勾选 `bootstrap` 可以强制刷新截至指定日期的完整 30 天。
+
+```bash
+# 获取东八区昨天的数据并生成图片
+python scripts/generate_history_graph.py
+
+# 补指定日期
+python scripts/generate_history_graph.py --date 2026-09-26
+
+# 强制重新拉取完整 30 天
+python scripts/generate_history_graph.py --bootstrap
+
+# 不联网，仅用仓库中的数据重画
+python scripts/generate_history_graph.py --offline
+
+# 测试
+python -m unittest discover -s tests -v
 ```
 
-### Customizing colors
+首次运行会直接得到 30 天完整窗口；之后每天只更新昨天，并持续滚动保留最近 30 天。
 
-You can customize the colors of grid, text, zeroline and bars by adding `grid_color`, `text_color`, `zeroline_color` and `language_colors` query parameters.
+## 数据流
 
-The `language_colors` is a list of colors seperated by comma and wrapped with `[]`, each color should be wrapped with quotes (e.g. `["red","hsl(0,100%,50%)","rgba(255,0,0,0.5)"]`)
-
-```markdown
-![My Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/username?grid_color=e8e8e8&text_color=666666&zeroline_color=ababab&language_colors=["red","green","blue"])
+```text
+每天 08:00（UTC+8）
+        │
+        ▼
+首次：读取截至昨天的 30 天
+之后：只读取昨天的数据
+        │  严格按日期过滤
+        ▼
+更新最近 30 天 JSON ──► 按累计 XP 选择前 12 种语言
+                              │
+GitHub Linguist 官方色 ──────┤
+                              ▼
+                    assets/codestats-history.svg
+                              │
+                              ▼
+                  github-actions[bot] 提交
 ```
 
-See [color string](#color-string) below for supported color representations.
+## 致谢与许可
 
-### More customization
-
-| query parameter | type                                | description                                                                             | default value                                                                          |
-| --------------- | ----------------------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| history_days    | integer                             | how many days to show in the graph, maximum 30                                          | 14                                                                                     |
-| max_languages   | integer                             | how many languages to show before grouping into "Others", maximum 15                    | 8                                                                                      |
-| timezone        | [timezone string](#timezone-string) | what timezone to use to calculate day ranges                                            | 00:00                                                                                  |
-| width           | integer                             | the width of image (in pixels)                                                          | 900                                                                                    |
-| height          | integer                             | the height of image (in pixels)                                                         | 450                                                                                    |
-| show_legend     | boolean                             | whether to show graph legend on the right                                               | true                                                                                   |
-| bg_color        | [color string](#color-string)       | the color of the image's background                                                     | ffffff                                                                                 |
-| grid_color      | [color string](#color-string)       | the color of the grid                                                                   | e8e8e8                                                                                 |
-| text_color      | [color string](#color-string)       | the color of the text                                                                   | 666666                                                                                 |
-| zeroline_color  | [color string](#color-string)       | the color of the zero-line                                                              | ababab                                                                                 |
-| language_colors | [color string](#color-string) list  | the colors of each langauge and "Others" (loops if length is less than `max_languages`) | \["3e4053","f15854","5da5da", "faa43a","60bd68","f17cb0", "b2912f","decf3f","b276b2"\] |
-
-**Special types:**
-
-<span id="color-string">Color string</span>
-
-- A hex string without `#` (e.g. `ff0000`, `ADE` for `aaddee`)
-- An rgb/rgba string (e.g. `rgb(255,0,0)`, `rgba(0,128,128,0.5)`)
-- An hsl/hsla string (e.g. `hsl(0,100%,50%)`, `hsla(60,50%,50%,0.7)`)
-- An hsv/hsva string (e.g. `hsv(0,100%,100%)`, `hsva(120,100%,100%,0.5)`)
-- A named CSS color, full list [here](http://www.w3.org/TR/css3-color/#svg-color)
-  
-<span id="timezone-string">Timezone string</span>
-
-- A string describing a timezone (e.g. `US/Pacific`, `Europe/Berlin`)
-- A string in ISO 8601 style (e.g. `07:30`, `-05:00`, `0630`, `-08`)
-
-### Demo
-
-- Default
-
-![WEGFan's Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/WEGFan)
-
-- Smaller with fewer history days & languages
-
-![WEGFan's Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/WEGFan?width=500&height=200&history_days=7&max_languages=5)
-
-- Customizing colors
-
-![WEGFan's Code::Stats history graph](https://codestats-readme.wegfan.cn/history-graph/WEGFan?bg_color=111&text_color=aaa&grid_color=333&language_colors=["3e4053","cc4b48","518fbd","ba7a2b","60bd68","f17cb0","b2912f","c71585","b276b2"])
-
----
-
-## Deploy on your own server
-
-You can also deploy this project on your own server by following the instructions below.
-
-Prerequisites:
-
-- [Python 3.6 64-bit](https://www.python.org/downloads/) or later. (64-bit is required because [kaleido](https://github.com/plotly/Kaleido) is currently not providing 32-bit pre-compiled wheels)
-- **(Optional)** [Redis](https://redis.io/download/) for caching. If not installed, the app will use a file system cache instead, which is not very performant thus it is highly recommended that you configure a Redis server.
-- **(Optional)** [SVGO](https://github.com/svg/svgo) for optimizing SVGs (also requires [Node.js](https://nodejs.org/en/download/))
-
-1. Clone the project: `git clone https://github.com/WEGFan/codestats-profile-readme && cd codestats-profile-readme`
-2. Install requirements: `pip install -r requirements.txt`
-3. Edit your config in [config/custom_config.py](config/custom_config.py).
-4. Run: `gunicorn -c gunicorn_config.py run:app`, and you should be able to access it by `http://127.0.0.1:2012` on your server
+图表行为与布局参考原项目 [WEGFan/codestats-profile-readme](https://github.com/WEGFan/codestats-profile-readme)。本仓库沿用其 MIT License。
