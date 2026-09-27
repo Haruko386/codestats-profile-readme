@@ -1,0 +1,66 @@
+name: Update Code::Stats history graph
+
+on:
+  schedule:
+    # GitHub Actions cron uses UTC. 00:00 UTC is 08:00 in Asia/Shanghai.
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Optional date to fetch (YYYY-MM-DD), for retry/backfill"
+        required: false
+        type: string
+      bootstrap:
+        description: "Refresh the complete 30-day history window"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-code-stats-history
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Fetch one day and render SVG
+        env:
+          INPUT_DATE: ${{ inputs.date }}
+          INPUT_BOOTSTRAP: ${{ inputs.bootstrap }}
+        run: |
+          args=()
+          if [[ -n "$INPUT_DATE" ]]; then
+            args+=(--date "$INPUT_DATE")
+          fi
+          if [[ "$INPUT_BOOTSTRAP" == "true" ]]; then
+            args+=(--bootstrap)
+          fi
+          python scripts/generate_history_graph.py "${args[@]}"
+
+      - name: Commit generated history
+        run: |
+          if git diff --quiet -- assets/codestats-history.svg data/codestats-history.json data/github-language-colors.json; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/codestats-history.svg data/codestats-history.json data/github-language-colors.json
+          git commit -m "chore: update Code::Stats history [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
